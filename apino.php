@@ -394,10 +394,297 @@ function custom()
 }
 
 /**
+ * 钩子
+ * Created by PhpStorm.
+ * @param $name
+ * @param $args
+ * @author QiuMinMin
+ * Date: 2020/8/1 19:58
+ */
+function hook($name, $args)
+{
+    Method::getInstance()->hook($name, $args);
+}
+
+/**
+ * 获取或配置参数
+ * @param $name
+ * @param string $value
+ * @return array|mixed
+ */
+function config(string $name = '', $value = '')
+{
+    return Method::getInstance()->config($name, $value);
+}
+
+/**
+ * session函数
+ * @param $name
+ * @param string $value
+ * @return array|mixed|string
+ */
+function session(string $name, $value = '')
+{
+    return Method::getInstance()->session($name, $value);
+}
+
+/**
+ * 错误处理
+ * Created by PhpStorm.
+ * @param $content
+ * @author QiuMinMin
+ * Date: 2020/5/17 7:47
+ */
+function error(string $content)
+{
+    Log::write($content, 'error', true);
+    Response::error($content);
+    die();
+}
+
+/**
+ * 执行器
+ * Created by PhpStorm.
+ * @param string $expression
+ * @param array $params
+ * @return array|int|mixed|null
+ * @author QiuMinMin
+ * Date: 2020/6/27 14:37
+ */
+function apino(string $expression, $params = [])
+{
+    $result = Method::getInstance()->apino($expression, $params);
+    hook('apino', [
+        'name' => $expression,
+        'request' => $params,
+        'response' => $result
+    ]);
+    return $result;
+}
+
+/**
+ * 表达式执行器，用户设定值优先于入参值
+ * Created by PhpStorm.
+ * @param $table
+ * @param $expression
+ * @param mixed ...$params
+ * @return array|int|mixed|null
+ * @author QiuMinMin
+ * Date: 2020/5/17 7:00
+ */
+function controller(string $expression, array $params = [])
+{
+    $response = Method::getInstance()->controller($expression, $params);
+    //日志钩子
+    hook('controller', [
+        'name' => $expression,
+        'request' => $params,
+        'response' => $response
+    ]);
+    return $response;
+}
+
+/**
+ * 服务者函数(调用服务里的方法)
+ * Created by PhpStorm.
+ * @param string $expression
+ * @param $params array 指定参数
+ * @return mixed
+ * @author QiuMinMin
+ * Date: 2020/5/19 8:55
+ */
+function service(string $expression, array $params = [])
+{
+    $response = Method::getInstance()->service($expression, $params);
+    //日志钩子
+    hook('service', [
+        'name' => $expression,
+        'request' => $params,
+        'response' => $response
+    ]);
+    return $response;
+}
+
+/**
+ * 持久化层
+ * Created by PhpStorm.
+ * @param $expression string
+ * @param $params array
+ * @return null
+ * @author QiuMinMin
+ * Date: 2020/5/22 15:05
+ */
+function dao(string $expression, array $params = [])
+{
+    $response = Method::getInstance()->dao($expression, $params);
+    //日志钩子
+    hook('dao', [
+        'name' => $expression,
+        'request' => $params,
+        'response' => $response
+    ]);
+    return $response;
+}
+
+/**
+ * 模型函数
+ * Created by PhpStorm.
+ * @param string|null $table
+ * @return Model
+ * @author QiuMinMin
+ * Date: 2020/6/27 20:48
+ */
+function model(string $table = null)
+{
+    return new Model($table);
+}
+
+/**
+ * 综合打印
+ * Created by PhpStorm.
+ * @param $data
+ * @author QiuMinMin
+ * Date: 2020/6/1 11:40
+ */
+function dump($data)
+{
+    if (gettype($data) == 'object') {
+        var_export($data);
+    } else {
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
+}
+
+/**
+ * sql拼装类功能入口
+ * Created by PhpStorm.
+ * @param null $tableName
+ * @return Sql
+ * @author QiuMinMin
+ * Date: 2020/7/30 23:51
+ */
+function sql($tableName = null)
+{
+    return new Sql($tableName);
+}
+
+/**
+ * 校验参数
+ * Created by PhpStorm.
+ * @param array $array
+ * @return bool|mixed
+ * @author QiuMinMin
+ * Date: 2020/6/1 16:18
+ * @example [[bool, errorInfo],[]...]
+ */
+function check(array $array)
+{
+    if (!count($array)) {
+        return true;
+    }
+    foreach ($array as $item) {
+        if ($item[0]) {
+            return $item[1];
+        }
+    }
+    return true;
+}
+
+/**
+ * 入参辅助函数
+ * Created by PhpStorm.
+ * @param null $name
+ * @param null $default
+ * @return array|mixed|null
+ * @author QiuMinMin
+ * Date: 2020/6/19 0:09
+ */
+function input($name = null, $default = null)
+{
+    return Request::instance()->param($name, $default);
+}
+
+/**
+ * 日志函数
+ * Created by PhpStorm.
+ * @param string $content
+ * @param string $fileName
+ * @param bool $dailyWrite
+ * @param bool $writeTime
+ * @author QiuMinMin
+ * Date: 2020/5/30 16:06
+ */
+function log(string $content, string $fileName, bool $dailyWrite = true, bool $writeTime = true)
+{
+    Log::write($content, $fileName, $dailyWrite, $writeTime);
+}
+
+//配置检查员(app.debug开启后才会执行)
+ConfigChecker::run();
+
+//只有api请求才会执行程序
+IS_AJAX && App::run();
+
+/**
  * 初始化函数
  */
 function initialize()
 {
+    /**
+     * 定义系统常量
+     * Created by PhpStorm.
+     * @author QiuMinMin
+     * Date: 2020/8/3 0:46
+     */
+    function defines(){
+        //关闭严格模式
+        ini_set("display_errors", 0);
+
+        //定义常量
+        //判断是否为api请求(是否是第一个引入文件)
+        define('IS_AJAX', get_required_files()[0] == __FILE__ ? 1 : 0);
+
+        //简化系统内置文件路径分隔符
+        define("DS", DIRECTORY_SEPARATOR);
+
+        //路径
+        define("ROOT_PATH", $_SERVER['DOCUMENT_ROOT']);
+        define("UPLOAD_PATH", ROOT_PATH . "/upload");
+
+        define("LOG_PATH", ROOT_PATH . "/log");
+
+        //validate正则类型
+        define('REQ', 'require');
+        define('INT', 'int');
+        define('FLOAT', 'float');
+        define('MOBILE', 'mobile');
+        define('EMAIL', 'email');
+        define('ARR', 'array');
+        //validate支持的所有正则
+        define('VALIDATE_TYPE_ARRAY', [
+            REQ,
+            INT,
+            FLOAT,
+            MOBILE,
+            EMAIL,
+            ARR
+        ]);
+
+        //系统默认角色
+        define('GUEST', 'guest');
+
+        //真实SQL前缀
+        define('SQL_RAW_PREFIX', random_bytes(10));
+
+        //获取权限模式
+        define('CONFIG', 'config');
+        define('DATABASE', 'database');
+        define('NONE', 'none');
+
+        //表关联常量
+        define('ONE_TO_ONE', 11); //一对一
+        define('ONE_TO_MANY', 13); //一对多
+    }
 
     defines();
 
@@ -3846,420 +4133,128 @@ function initialize()
         }
 
     }
-}
-
-/**
- * 定义系统常量
- * Created by PhpStorm.
- * @author QiuMinMin
- * Date: 2020/8/3 0:46
- */
-function defines(){
-    //关闭严格模式
-    ini_set("display_errors", 0);
-
-    //定义常量
-    //判断是否为api请求(是否是第一个引入文件)
-    define('IS_AJAX', get_required_files()[0] == __FILE__ ? 1 : 0);
-
-    //简化系统内置文件路径分隔符
-    define("DS", DIRECTORY_SEPARATOR);
-
-    //路径
-    define("ROOT_PATH", $_SERVER['DOCUMENT_ROOT']);
-    define("UPLOAD_PATH", ROOT_PATH . "/upload");
-
-    define("LOG_PATH", ROOT_PATH . "/log");
-
-    //validate正则类型
-    define('REQ', 'require');
-    define('INT', 'int');
-    define('FLOAT', 'float');
-    define('MOBILE', 'mobile');
-    define('EMAIL', 'email');
-    define('ARR', 'array');
-    //validate支持的所有正则
-    define('VALIDATE_TYPE_ARRAY', [
-        REQ,
-        INT,
-        FLOAT,
-        MOBILE,
-        EMAIL,
-        ARR
-    ]);
-
-    //系统默认角色
-    define('GUEST', 'guest');
-
-    //真实SQL前缀
-    define('SQL_RAW_PREFIX', random_bytes(10));
-
-    //获取权限模式
-    define('CONFIG', 'config');
-    define('DATABASE', 'database');
-    define('NONE', 'none');
-
-    //表关联常量
-    define('ONE_TO_ONE', 11); //一对一
-    define('ONE_TO_MANY', 13); //一对多
-}
-
-/**
- * 以下为用户可用功能
- */
-
-/**
- * 嵌入页面代码工具类
- * Class Embed
- */
-class Embed
-{
-    /**
-     * @var Js
-     */
-    public static $js;
 
     /**
-     * post请求
-     * Created by PhpStorm.
-     * @param $url
-     * @param Closure $callback
-     * @author QiuMinMin
-     * Date: 2020/7/4 14:44
+     * 嵌入页面代码工具类
+     * Class Embed
      */
-    public static function post($url, Closure $callback)
+    class Embed
     {
-        if (Request::instance()->isPost()) {
-            list($success, $result) = apino($url);
-            $callback($success, $result);
-        }
-    }
+        /**
+         * @var Js
+         */
+        public static $js;
 
-    /**
-     * get请求
-     * Created by PhpStorm.
-     * @param $url
-     * @param Closure $callback
-     * @author QiuMinMin
-     * Date: 2020/7/4 14:43
-     */
-    public static function get($url, Closure $callback)
-    {
-        if (Request::instance()->isGet()) {
-            list($success, $result) = apino($url);
-            $callback($success, $result);
-        }
-    }
-
-    /**
-     * 数据库请求
-     * Created by PhpStorm.
-     * @param $expression
-     * @param array $params
-     * @return mixed
-     * @throws Exception
-     * @author QiuMinMin
-     * Date: 2020/7/4 14:43
-     */
-    public static function apino($expression, $params = [])
-    {
-        list($success, $result) = apino($expression, $params);
-
-        if ($success) {
-            return $result;
-        } else {
-            throw new Exception($result);
-        }
-    }
-
-    /**
-     * 地址引用方法，当ID存在则$url为后缀url，否则url为调用url的参数
-     * Created by PhpStorm.
-     * @param $id
-     * @param $url
-     * @return mixed|string|null
-     * @author QiuMinMin
-     * Date: 2020/7/1 20:50
-     */
-    public static function ref($id, $url = '')
-    {
-        $value = null;
-        $urlArray = config('ref');
-        foreach ($urlArray as $urlId => $urlAddress) {
-            if ($urlId == $id) {
-                $value = $urlAddress;
-                break;
+        /**
+         * post请求
+         * Created by PhpStorm.
+         * @param $url
+         * @param Closure $callback
+         * @author QiuMinMin
+         * Date: 2020/7/4 14:44
+         */
+        public static function post($url, Closure $callback)
+        {
+            if (Request::instance()->isPost()) {
+                list($success, $result) = apino($url);
+                $callback($success, $result);
             }
         }
-        return $value ? $value . $url : self::url($url);
-    }
 
-    /**
-     * url组装
-     * Created by PhpStorm.
-     * @param $expression
-     * @return string
-     * @author QiuMinMin
-     * Date: 2020/7/4 14:45
-     */
-    public static function url($expression)
-    {
-        if (strpos($expression, '/') != 0) {
-            $expression = '/' . $expression;
+        /**
+         * get请求
+         * Created by PhpStorm.
+         * @param $url
+         * @param Closure $callback
+         * @author QiuMinMin
+         * Date: 2020/7/4 14:43
+         */
+        public static function get($url, Closure $callback)
+        {
+            if (Request::instance()->isGet()) {
+                list($success, $result) = apino($url);
+                $callback($success, $result);
+            }
         }
-        return '/apino.php' . $expression;
-    }
 
-    /**
-     * 文件引入
-     * Created by PhpStorm.
-     * @param $file
-     * @author QiuMinMin
-     * Date: 2020/7/4 14:45
-     */
-    public static function require($file)
-    {
-        require_once $file;
-    }
+        /**
+         * 数据库请求
+         * Created by PhpStorm.
+         * @param $expression
+         * @param array $params
+         * @return mixed
+         * @throws Exception
+         * @author QiuMinMin
+         * Date: 2020/7/4 14:43
+         */
+        public static function apino($expression, $params = [])
+        {
+            list($success, $result) = apino($expression, $params);
 
-    public function __get($name)
-    {
-        if (empty(self::$name)) {
-            $class = ucfirst($name);
-            self::$name = new $class();
+            if ($success) {
+                return $result;
+            } else {
+                throw new Exception($result);
+            }
         }
-        return self::$name;
-    }
-}
 
-/**
- * 钩子
- * Created by PhpStorm.
- * @param $name
- * @param $args
- * @author QiuMinMin
- * Date: 2020/8/1 19:58
- */
-function hook($name, $args)
-{
-    Method::getInstance()->hook($name, $args);
-}
+        /**
+         * 地址引用方法，当ID存在则$url为后缀url，否则url为调用url的参数
+         * Created by PhpStorm.
+         * @param $id
+         * @param $url
+         * @return mixed|string|null
+         * @author QiuMinMin
+         * Date: 2020/7/1 20:50
+         */
+        public static function ref($id, $url = '')
+        {
+            $value = null;
+            $urlArray = config('ref');
+            foreach ($urlArray as $urlId => $urlAddress) {
+                if ($urlId == $id) {
+                    $value = $urlAddress;
+                    break;
+                }
+            }
+            return $value ? $value . $url : self::url($url);
+        }
 
-/**
- * 获取或配置参数
- * @param $name
- * @param string $value
- * @return array|mixed
- */
-function config(string $name = '', $value = '')
-{
-    return Method::getInstance()->config($name, $value);
-}
+        /**
+         * url组装
+         * Created by PhpStorm.
+         * @param $expression
+         * @return string
+         * @author QiuMinMin
+         * Date: 2020/7/4 14:45
+         */
+        public static function url($expression)
+        {
+            if (strpos($expression, '/') != 0) {
+                $expression = '/' . $expression;
+            }
+            return '/apino.php' . $expression;
+        }
 
-/**
- * session函数
- * @param $name
- * @param string $value
- * @return array|mixed|string
- */
-function session(string $name, $value = '')
-{
-    return Method::getInstance()->session($name, $value);
-}
+        /**
+         * 文件引入
+         * Created by PhpStorm.
+         * @param $file
+         * @author QiuMinMin
+         * Date: 2020/7/4 14:45
+         */
+        public static function require($file)
+        {
+            require_once $file;
+        }
 
-/**
- * 错误处理
- * Created by PhpStorm.
- * @param $content
- * @author QiuMinMin
- * Date: 2020/5/17 7:47
- */
-function error(string $content)
-{
-    Log::write($content, 'error', true);
-    Response::error($content);
-    die();
-}
-
-/**
- * 执行器
- * Created by PhpStorm.
- * @param string $expression
- * @param array $params
- * @return array|int|mixed|null
- * @author QiuMinMin
- * Date: 2020/6/27 14:37
- */
-function apino(string $expression, $params = [])
-{
-    $result = Method::getInstance()->apino($expression, $params);
-    hook('apino', [
-        'name' => $expression,
-        'request' => $params,
-        'response' => $result
-    ]);
-    return $result;
-}
-
-/**
- * 表达式执行器，用户设定值优先于入参值
- * Created by PhpStorm.
- * @param $table
- * @param $expression
- * @param mixed ...$params
- * @return array|int|mixed|null
- * @author QiuMinMin
- * Date: 2020/5/17 7:00
- */
-function controller(string $expression, array $params = [])
-{
-    $response = Method::getInstance()->controller($expression, $params);
-    //日志钩子
-    hook('controller', [
-        'name' => $expression,
-        'request' => $params,
-        'response' => $response
-    ]);
-    return $response;
-}
-
-/**
- * 服务者函数(调用服务里的方法)
- * Created by PhpStorm.
- * @param string $expression
- * @param $params array 指定参数
- * @return mixed
- * @author QiuMinMin
- * Date: 2020/5/19 8:55
- */
-function service(string $expression, array $params = [])
-{
-    $response = Method::getInstance()->service($expression, $params);
-    //日志钩子
-    hook('service', [
-        'name' => $expression,
-        'request' => $params,
-        'response' => $response
-    ]);
-    return $response;
-}
-
-/**
- * 持久化层
- * Created by PhpStorm.
- * @param $expression string
- * @param $params array
- * @return null
- * @author QiuMinMin
- * Date: 2020/5/22 15:05
- */
-function dao(string $expression, array $params = [])
-{
-    $response = Method::getInstance()->dao($expression, $params);
-    //日志钩子
-    hook('dao', [
-        'name' => $expression,
-        'request' => $params,
-        'response' => $response
-    ]);
-    return $response;
-}
-
-/**
- * 模型函数
- * Created by PhpStorm.
- * @param string|null $table
- * @return Model
- * @author QiuMinMin
- * Date: 2020/6/27 20:48
- */
-function model(string $table = null)
-{
-    return new Model($table);
-}
-
-/**
- * 综合打印
- * Created by PhpStorm.
- * @param $data
- * @author QiuMinMin
- * Date: 2020/6/1 11:40
- */
-function dump($data)
-{
-    if (gettype($data) == 'object') {
-        var_export($data);
-    } else {
-        echo json_encode($data, JSON_UNESCAPED_UNICODE);
-    }
-}
-
-/**
- * sql拼装类功能入口
- * Created by PhpStorm.
- * @param null $tableName
- * @return Sql
- * @author QiuMinMin
- * Date: 2020/7/30 23:51
- */
-function sql($tableName = null)
-{
-    return new Sql($tableName);
-}
-
-/**
- * 校验参数
- * Created by PhpStorm.
- * @param array $array
- * @return bool|mixed
- * @author QiuMinMin
- * Date: 2020/6/1 16:18
- * @example [[bool, errorInfo],[]...]
- */
-function check(array $array)
-{
-    if (!count($array)) {
-        return true;
-    }
-    foreach ($array as $item) {
-        if ($item[0]) {
-            return $item[1];
+        public function __get($name)
+        {
+            if (empty(self::$name)) {
+                $class = ucfirst($name);
+                self::$name = new $class();
+            }
+            return self::$name;
         }
     }
-    return true;
 }
-
-/**
- * 入参辅助函数
- * Created by PhpStorm.
- * @param null $name
- * @param null $default
- * @return array|mixed|null
- * @author QiuMinMin
- * Date: 2020/6/19 0:09
- */
-function input($name = null, $default = null)
-{
-    return Request::instance()->param($name, $default);
-}
-
-/**
- * 日志函数
- * Created by PhpStorm.
- * @param string $content
- * @param string $fileName
- * @param bool $dailyWrite
- * @param bool $writeTime
- * @author QiuMinMin
- * Date: 2020/5/30 16:06
- */
-function log(string $content, string $fileName, bool $dailyWrite = true, bool $writeTime = true)
-{
-    Log::write($content, $fileName, $dailyWrite, $writeTime);
-}
-
-//配置检查员(app.debug开启后才会执行)
-ConfigChecker::run();
-
-//只有api请求才会执行程序
-IS_AJAX && App::run();
