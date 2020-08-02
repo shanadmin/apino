@@ -73,6 +73,16 @@ config('app', [
         //会话ID，如果有值则自动切换会话
         'session' => '',
     ],
+    //入参规定
+    'request' => [
+        //分页规定
+        'page' => [
+            //页数
+            'page' => 'page',
+            //页记录数
+            'size' => 'size',
+        ]
+    ],
     //出参格式
     'response' => [
         //放在data下面
@@ -202,24 +212,31 @@ config('api', [
         ],
         //获取验证码
         'verifyCode' => [
-            VerifyCode::IMAGE => [
-                //图片宽度
-                "width" => 200,
-                //图片高度
-                "height" => 100,
-                //字符数量
-                "number" => 4,
-            ],
-            VerifyCode::EMAIL => [
-                //字符数量
-                "number" => 6,
-                //替换验证码的内容
-                "codeTemplate" => '#code#',
-                //设置标题
-                "title" => '验证码信息',
-                //设置内容模板
-                "content" => '您的验证码位#code#,请5分钟内使用！',
-            ],
+            //场景
+            'sence' => 'sence',
+            //使用方式
+            'type' => 'type',
+            'config' => [
+                VerifyCode::IMAGE => [
+                    //图片宽度
+                    "width" => 200,
+                    //图片高度
+                    "height" => 100,
+                    //字符数量
+                    "number" => 4,
+                ],
+                VerifyCode::EMAIL => [
+                    //字符数量
+                    "number" => 6,
+                    //替换验证码的内容
+                    "codeTemplate" => '#code#',
+                    //设置标题
+                    "title" => '验证码信息',
+                    //设置内容模板
+                    "content" => '您的验证码位#code#,请5分钟内使用！',
+                ],
+            ]
+
         ],
         //获取token
         'token' => [
@@ -348,6 +365,11 @@ config('hook', [
     'dao' => function ($name, $request, $response) {
     },
     /**
+     * 执行apino执行器钩子
+     */
+    'apino' => function ($name, $request, $response) {
+    },
+    /**
      * 执行sql时调用
      * @var $sql string 执行SQL
      */
@@ -362,85 +384,29 @@ config('hook', [
 ]);
 
 /**
+ * 用户自定义代码块
+ * Created by PhpStorm.
+ * @author QiuMinMin
+ * Date: 2020/8/2 13:46
+ */
+function custom()
+{
+}
+
+/**
  * 初始化函数
  */
 function initialize()
 {
-    //关闭严格模式
-    ini_set("display_errors", 0);
 
-    //定义常量
-    //判断是否为api请求(是否是第一个引入文件)
-    define('IS_AJAX', get_required_files()[0] == __FILE__ ? 1 : 0);
-
-    //简化系统内置文件路径分隔符
-    define("DS", DIRECTORY_SEPARATOR);
-
-    //路径
-    define("ROOT_PATH", $_SERVER['DOCUMENT_ROOT']);
-    define("UPLOAD_PATH", ROOT_PATH . "/upload");
-
-    define("LOG_PATH", ROOT_PATH . "/log");
-
-    //validate正则类型
-    define('REQ', 'require');
-    define('INT', 'int');
-    define('FLOAT', 'float');
-    define('MOBILE', 'mobile');
-    define('EMAIL', 'email');
-    define('ARR', 'array');
-    //validate支持的所有正则
-    define('VALIDATE_TYPE_ARRAY', [
-        REQ,
-        INT,
-        FLOAT,
-        MOBILE,
-        EMAIL,
-        ARR
-    ]);
-
-    //系统默认角色
-    define('GUEST', 'guest');
-
-    //真实SQL前缀
-    define('SQL_RAW_PREFIX', random_bytes(10));
-
-    //获取权限模式
-    define('CONFIG', 'config');
-    define('DATABASE', 'database');
-    define('NONE', 'none');
-
-    //表关联常量
-    define('ONE_TO_ONE', 11); //一对一
-    define('ONE_TO_MANY', 13); //一对多
+    defines();
 
     /**
-     * 返回值封装类
-     * Trait Result
+     * 日志驱动
+     * Class Log
      */
-    trait Result
+    class Log
     {
-        public static function success($data = [])
-        {
-            return [true, $data];
-        }
-
-        public static function error($msg = '')
-        {
-            return [false, $msg];
-        }
-    }
-
-    /**
-     * Trait Log 日志类
-     */
-    trait Log
-    {
-        /**
-         * 日志文件名
-         * @var string
-         */
-        protected $log_file = "log";
 
         /**
          * 日志文件夹
@@ -449,24 +415,13 @@ function initialize()
         protected static $dir = LOG_PATH;
 
         /**
-         * 错误处理函数，返回值只会是False
-         * @param $info string
-         * @param bool $daily_write
-         * @param bool $writeTime
-         */
-        protected function log_file($info, $daily_write = true, $writeTime = true)
-        {
-            self::write($info, $this->log_file, $daily_write, $writeTime);
-        }
-
-        /**
          * 日志驱动
          * @param $str
          * @param string $file_name
          * @param bool $daily_write
          * @param bool $writeTime
          */
-        public static function write($str, $file_name, $daily_write = false, $writeTime = true)
+        public static function file($str, $file_name, $daily_write = false, $writeTime = true)
         {
             $file_path = self::$dir . "/";
             if (!is_dir($file_path)) {
@@ -487,7 +442,48 @@ function initialize()
     }
 
     /**
-     * 错误特性类
+     * 出参包装特性
+     * Trait Result
+     */
+    trait Result
+    {
+        public static function success($data = [])
+        {
+            return [true, $data];
+        }
+
+        public static function error($msg = '')
+        {
+            return [false, $msg];
+        }
+    }
+
+    /**
+     * 日志特性
+     */
+    trait LogTrait
+    {
+        /**
+         * 日志文件名
+         * @var string
+         */
+        protected $log_file = "log";
+
+        /**
+         * 错误处理函数，返回值只会是False
+         * @param $info string
+         * @param bool $daily_write
+         * @param bool $writeTime
+         */
+        protected function log_file($info, $daily_write = true, $writeTime = true)
+        {
+            Log::file($info, $this->log_file, $daily_write, $writeTime);
+        }
+
+    }
+
+    /**
+     * 错误特性
      * Trait ErrorTrait
      */
     trait ErrorTrait
@@ -578,7 +574,7 @@ function initialize()
         {
             $params = array_merge(Request::instance()->param(), Is::array($params) ? $params : []);
             $closure = config("controller.$expression");
-            return Is::closure($closure) ? $closure($params) : service($expression, $params);
+            return Is::closure($closure) ? $closure($params) : $this->service($expression, $params);
         }
 
         /**
@@ -593,7 +589,7 @@ function initialize()
         public function service(string $expression, array $params = [])
         {
             $closure = config("service.$expression");
-            return Is::closure($closure) ? $closure($params) : dao($expression, $params);
+            return Is::closure($closure) ? $closure($params) : $this->dao($expression, $params);
         }
 
         /**
@@ -613,8 +609,7 @@ function initialize()
                 //APINO表达式
                 list($temp, $table, $expression) = explode('/', $expression);
                 unset($temp);
-                $table = config('database.tableNamePrefix') . $table;
-                return model($table)->apino($table, $expression, $params);
+                return model($table)->apino($expression, $params);
             } else {
                 //直接SQL语句
                 //替换SQL表达式里的动态属性值
@@ -1177,7 +1172,7 @@ function initialize()
      */
     class Mysql
     {
-        use Log;
+        use LogTrait;
 
         //类型
         protected $type;
@@ -1201,7 +1196,7 @@ function initialize()
          */
         protected static $pdo;
 
-        protected function __construct($lazyConnect = false)
+        public function __construct()
         {
             $config = config('database');
             $this->type = $config['type'];
@@ -1212,7 +1207,7 @@ function initialize()
             $this->password = $config['password'];
             $this->charset = $config['charset'];
 
-            $lazyConnect && $this->connect();
+            $this->connect();
         }
 
         /**
@@ -1221,6 +1216,7 @@ function initialize()
         public function startTrans()
         {
             self::$pdo->beginTransaction();
+            return $this;
         }
 
         /**
@@ -1229,6 +1225,7 @@ function initialize()
         public function rollback()
         {
             self::$pdo->rollBack();
+            return $this;
         }
 
         /**
@@ -1240,69 +1237,67 @@ function initialize()
         }
 
         /**
+         * 返回增删改影响记录数|查结果集
+         * Created by PhpStorm.
+         * @return array|int
+         * @author QiuMinMin
+         * Date: 2020/8/1 23:11
+         */
+        public function execute()
+        {
+            $result = self::$pdo->prepare($this->sql);
+
+            $result->execute();
+
+            $errorInfo = $result->errorInfo();
+
+            if ($errorInfo[2] != null) {
+                error($errorInfo[2]);
+            }
+
+            return stripos($this->sql, 'select')
+                ? $result->fetchAll(PDO::FETCH_ASSOC)
+                : $result->rowCount();
+        }
+
+        /**
+         * 获取|修改SQL
+         * Created by PhpStorm.
+         * @param string $sql
+         * @return mixed
+         * @author QiuMinMin
+         * Date: 2020/8/1 23:03
+         */
+        public function sql($sql = null)
+        {
+            if (empty($sql)) {
+                return $this->sql;
+            }
+
+            $this->sql = $sql;
+            return $this;
+        }
+
+        /**
          * 连接数据库
          * @return mixed
          */
         protected function connect()
         {
-            try {
-                if (empty(self::$pdo)) {
-                    //mysql连接
-                    $dsn = sprintf("%s:host=%s;port=%s;dbname=%s",
-                        $this->type, $this->host,
-                        $this->port, $this->dbname
-                    );
-                    self::$pdo = new PDO($dsn, $this->username, $this->password);
-                    //编码
-                    self::$pdo->exec(sprintf("set names %s", $this->charset));
-                    //持久化连接
-                    self::$pdo::ATTR_PERSISTENT;
-                }
-            } catch (Exception $e) {
-                $this->log_file($e->getMessage());
-            }
-            return true;
-        }
-
-        /**
-         * 返回影响记录数
-         *
-         */
-        protected function execute()
-        {
-            $result = self::$pdo->prepare($this->sql);
-
-            $result->execute();
-
-            $errorInfo = $result->errorInfo();
-
-            if ($errorInfo[2] != null) {
-                error($errorInfo[2]);
+            if (empty(self::$pdo)) {
+                //mysql连接
+                $dsn = sprintf("%s:host=%s;port=%s;dbname=%s",
+                    $this->type, $this->host,
+                    $this->port, $this->dbname
+                );
+                self::$pdo = new PDO($dsn, $this->username, $this->password);
+                //编码
+                self::$pdo->exec(sprintf("set names %s", $this->charset));
+                //持久化连接
+                self::$pdo::ATTR_PERSISTENT;
             }
 
-            return $result->rowCount();
-        }
-
-        /**
-         * 返回查询结果
-         * Created by PhpStorm.
-         * @return array
-         * @author QiuMinMin
-         * Date: 2020/7/30 23:59
-         */
-        protected function query()
-        {
-            $result = self::$pdo->prepare($this->sql);
-
-            $result->execute();
-
-            $errorInfo = $result->errorInfo();
-
-            if ($errorInfo[2] != null) {
-                error($errorInfo[2]);
-            }
-
-            return $result->fetchAll(PDO::FETCH_ASSOC);
+            return $this;
         }
 
         /**
@@ -1321,12 +1316,15 @@ function initialize()
     }
 
     /**
-     * Class Db 拓展执行器
-     * @method Model allowFields(bool $switch) 仅字段
-     * @method Model autoQuery(bool $switch) 自动关联查询
+     * SQL组装增强特性
+     * Trait DbPlusTrait
      */
-    class Db extends Mysql
+    trait DbPlusTrait
     {
+        /**
+         * @var string 表全名
+         */
+        protected $trueTableName;
         /**
          * @var bool 删除非表字段
          */
@@ -1335,14 +1333,245 @@ function initialize()
          * @var bool 自动关联查询(预设定)
          */
         protected $autoQuery = true;
+
+        public function allowFields($bool = true)
+        {
+            $this->allowFields = $bool;
+            return $this;
+        }
+
+        public function autoQuery($bool = true)
+        {
+            $this->autoQuery = $bool;
+            return $this;
+        }
+
+        public function table($trueTableName = '')
+        {
+            if ($trueTableName === '') {
+                return $this->trueTableName;
+            } else {
+                $this->trueTableName = $trueTableName;
+                return $this;
+            }
+        }
+
+        /**
+         * 自动补全查询信息
+         * Created by PhpStorm.
+         * @param $data
+         * @return array
+         * @author QiuMinMin
+         * Date: 2020/5/31 9:04
+         */
+        protected function autoCompleteInsert(array $data)
+        {
+            return array_merge($this->getTableDefaultValues(), $data);
+        }
+
+        /**
+         * 自动添加得条件(不能查询出假删除条件)，仅限于select
+         * Created by PhpStorm.
+         * @param string $where
+         * @return string
+         * @author QiuMinMin
+         * Date: 2020/5/31 8:45
+         */
+        protected function appendWhereByFalseDelete($where = '')
+        {
+            $config = config('database.falseDeleteValue');
+            foreach ($config as $k => $v) {
+                list($table, $field) = explode('.', $k);
+                if ($table == $this->trueTableName) {
+                    $where .= " AND `$field` = $v ";
+                    break;
+                }
+            }
+            return $where;
+        }
+
+        /**
+         * 自动添加时间戳
+         * Created by PhpStorm.
+         * @param $data array  数据
+         * @param bool $insert
+         * @return mixed
+         * @author QiuMinMin
+         * Date: 2020/5/31 8:49
+         */
+        protected function autoTimestampWithUpdate($data, $insert = false)
+        {
+            $config = config('database.autoTimestamp');
+            if ($config['switch']) {
+                $closure = $config['generater'];
+                $time = Is::closure($closure) ? $closure() : time();
+
+                if ($insert) {
+                    $field = $config['createTime'][$this->trueTableName];
+                    !empty($field) && $data[$field] = $time;
+                }
+
+                $field = $config['updateTime'][$this->trueTableName];
+                !empty($field) && $data[$field] = $time;
+            }
+            return $data;
+        }
+
+        /**
+         * 获取字段默认值
+         * Created by PhpStorm.
+         * @return array
+         * @author QiuMinMin
+         * Date: 2020/6/20 1:50
+         */
+        protected function getTableDefaultValues()
+        {
+            $mysql = new Mysql();
+            $sql = sprintf('
+            SELECT COLUMN_NAME,COLUMN_DEFAULT,DATA_TYPE,IS_NULLABLE,EXTRA,COLUMN_KEY
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = "%s" AND TABLE_SCHEMA = "%s"',
+                $this->trueTableName,
+                config('database.dbname')
+            );
+            $fields = $mysql->sql($sql)->execute();
+            $fieldValues = [];
+            foreach ($fields as $field) {
+                $fieldName = $field['COLUMN_NAME'];
+
+                if (stristr($field['EXTRA'], 'auto_increment')) {
+                    //属性携带自增长属性，则跳过
+                    continue;
+                }
+
+                if (!config('database.autoCompleteNoNull')) {
+                    if ($field['IS_NULLABLE'] == 'YES') {
+                        //允许为空则进行一个初始化复制
+                        $fieldValues[$fieldName] = null;
+                        continue;
+                    }
+                }
+                if (in_array($field['DATA_TYPE'], ['varchar', 'char', 'text', 'longtext'])) {
+                    $fieldValues[$fieldName] = '';
+                } else {
+                    if (in_array($field['DATA_TYPE'], ['int', 'tinyint'])) {
+                        $fieldValues[$fieldName] = 0;
+                    }
+                }
+            }
+            return $fieldValues;
+        }
+
+        /**
+         * 真删锁校验
+         * Created by PhpStorm.
+         * @param $sql
+         * @author QiuMinMin
+         * Date: 2020/7/30 23:23
+         */
+        protected function trueDeleteLock($sql)
+        {
+            if (stristr($sql, 'delete')) {
+                //假删锁验证
+                $config = config('database.canTrueDelete');
+                if ($config['switch']) {
+                    $key = input($config['param']);
+                    if (empty($key)) {
+                        error('真删密钥缺失');
+                    }
+                    if ($config['key'] != $key) {
+                        error('真删密钥不正确');
+                    }
+                }
+            }
+        }
+
+        /**
+         * 获取表字段信息
+         * Created by PhpStorm.
+         * @author QiuMinMin
+         * Date: 2020/6/19 9:17
+         */
+        public function getTableFields()
+        {
+            $mysql = new Mysql();
+            $sql = sprintf('
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = "%s" AND TABLE_SCHEMA = "%s"',
+                $this->trueTableName,
+                config('database.dbname')
+            );
+            return array_column($mysql->sql($sql)->execute(), 'COLUMN_NAME');
+        }
+
+        /**
+         * 数据补充(关联查询数据)
+         * Created by PhpStorm.
+         * @param $data array
+         * @return array
+         * @author QiuMinMin
+         * Date: 2020/7/31 0:12
+         */
+        protected function suppleData($data)
+        {
+            if (!$this->autoQuery) {
+                return $data;
+            }
+
+            $config = config('database.autoQuery');
+            if (Is::array($config) && count($config) == 0) {
+                return $data;
+            }
+
+            /**
+             * @example [内键 => [外表, 外键, 关系], ...]
+             */
+            $relationDataList = [];
+
+            foreach ($config as $foreignKey => $internalKeys) {
+                list($foreignTrueTableName, $foreignKey) = explode('.', $foreignKey);
+                foreach ($internalKeys as $internalKey => $relation) {
+                    list($trueTableName, $internalKey) = explode('.', $internalKey);
+                    if ($this->trueTableName != $trueTableName) {
+                        continue;
+                    }
+                    $relationDataList[$internalKey] = [$foreignTrueTableName, $foreignKey, $relation];
+                }
+            }
+            if (count($relationDataList) == 0) {
+                return $data;
+            }
+
+            foreach ($data as &$record) {
+                foreach ($relationDataList as $field => $relation) {
+                    if (!isset($record[$field])) {
+                        continue;
+                    }
+                    list($trueTableName, $foreignKey, $relation) = $relation;
+                    $model = new Model();
+                    $model->table($trueTableName);
+                    $model = $model->and($foreignKey, $record[$field]);
+                    $record['relation'][$field] = $relation == ONE_TO_MANY ? $model->select() : $model->get();
+                }
+
+                unset($record);
+            }
+            return $data;
+        }
+    }
+
+    /**
+     * Class Db 拓展执行器
+     */
+    class Db extends Mysql
+    {
+
+        use DbPlusTrait;
+
         /**
          * @var string 组装where语句
          */
         protected $where = "";
-        /**
-         * @var string 真实表名
-         */
-        protected $trueTableName;
 
         public function insert($data)
         {
@@ -1394,7 +1623,8 @@ function initialize()
 
         public function select($fields = "*")
         {
-            $this->autoWhereWithSelect();
+            $this->where = $this->appendWhereByFalseDelete($this->where);
+
             return sprintf(
                 'SELECT %s FROM `%s` WHERE 1=1 %s',
                 $fields,
@@ -1403,9 +1633,10 @@ function initialize()
             );
         }
 
-        public function selectOne($fields = "*")
+        public function get($fields = "*")
         {
-            $this->autoWhereWithSelect();
+            $this->where = $this->appendWhereByFalseDelete($this->where);
+
             return sprintf(
                 'SELECT %s FROM `%s` WHERE 1=1 %s LIMIT 1',
                 $fields,
@@ -1416,9 +1647,10 @@ function initialize()
 
         public function count()
         {
-            $this->autoWhereWithSelect();
+            $this->where = $this->appendWhereByFalseDelete($this->where);
+
             return sprintf(
-                'SELECT COUNT(*) as `count` FROM `%s` WHERE 1=1 %s',
+                'SELECT COUNT(*) as `count` as `count` FROM `%s` WHERE 1=1 %s',
                 $this->trueTableName,
                 $this->where
             );
@@ -1429,7 +1661,9 @@ function initialize()
             if (empty($field)) {
                 throw new Exception('getField的入参不能为空');
             }
-            $this->autoWhereWithSelect();
+
+            $this->where = $this->appendWhereByFalseDelete($this->where);
+
             return sprintf(
                 'SELECT %s FROM `%s` WHERE 1=1 %s %s',
                 $field,
@@ -1439,7 +1673,7 @@ function initialize()
             );
         }
 
-        public function whereLike($name, $value)
+        public function like($name, $value)
         {
             if (!empty($value) || $value === 0) {
                 $nameList = explode("|", $name);
@@ -1458,7 +1692,7 @@ function initialize()
             return $this;
         }
 
-        public function where($name, $value)
+        public function and($name, $value)
         {
             if (!empty($value) || $value === 0) {
                 $nameList = explode("|", $name);
@@ -1477,7 +1711,7 @@ function initialize()
             return $this;
         }
 
-        public function whereOr($condition)
+        public function or($condition)
         {
             $where = " AND ( 1 != 1 ";
             if (count($condition) > 0) {
@@ -1498,7 +1732,7 @@ function initialize()
             return $this;
         }
 
-        public function whereIn($name, array $list)
+        public function in($name, array $list)
         {
             if (empty($list)) {
                 array_push($list, 0);
@@ -1508,7 +1742,7 @@ function initialize()
             return $this;
         }
 
-        public function whereNotIn($name, $list)
+        public function notIn($name, $list)
         {
             if (empty($list)) {
                 array_push($list, 0);
@@ -1516,134 +1750,6 @@ function initialize()
             $temp = implode(",", $list);
             $this->where .= " AND $name NOT IN($temp) ";
             return $this;
-        }
-
-        /**
-         * 自动补全查询信息
-         * Created by PhpStorm.
-         * @param $data
-         * @return array
-         * @author QiuMinMin
-         * Date: 2020/5/31 9:04
-         */
-        private function autoCompleteInsert(array $data)
-        {
-            return array_merge($this->getTableDefaultValues(), $data);
-        }
-
-        /**
-         * 获取字段默认值
-         * Created by PhpStorm.
-         * @return array
-         * @author QiuMinMin
-         * Date: 2020/6/20 1:50
-         */
-        private function getTableDefaultValues()
-        {
-            $sql = sprintf('
-            SELECT COLUMN_NAME,COLUMN_DEFAULT,DATA_TYPE,IS_NULLABLE,EXTRA,COLUMN_KEY
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_NAME = "%s" AND TABLE_SCHEMA = "%s"',
-                $this->trueTableName,
-                $this->dbname
-            );
-            $fields = $this->sql($sql)->exec();
-            $fieldValues = [];
-            foreach ($fields as $field) {
-                $fieldName = $field['COLUMN_NAME'];
-
-                if (stristr($field['EXTRA'], 'auto_increment')) {
-                    //属性携带自增长属性，则跳过
-                    continue;
-                }
-
-                if (!config('database.autoCompleteNoNull')) {
-                    if ($field['IS_NULLABLE'] == 'YES') {
-                        //允许为空则进行一个初始化复制
-                        $fieldValues[$fieldName] = null;
-                        continue;
-                    }
-                }
-                if (in_array($field['DATA_TYPE'], ['varchar', 'char', 'text', 'longtext'])) {
-                    $fieldValues[$fieldName] = '';
-                } else {
-                    if (in_array($field['DATA_TYPE'], ['int', 'tinyint'])) {
-                        $fieldValues[$fieldName] = 0;
-                    }
-                }
-            }
-            return $fieldValues;
-        }
-
-        /**
-         * 自动添加得条件(不能查询出假删除条件)，仅限于select
-         * Created by PhpStorm.
-         * @author QiuMinMin
-         * Date: 2020/5/31 8:45
-         */
-        private function autoWhereWithSelect()
-        {
-            $config = config('database.falseDeleteValue');
-            foreach ($config as $k => $v) {
-                list($table, $field) = explode('.', $k);
-                if ($table == $this->tableName) {
-                    $this->where .= " AND `$field` = $v ";
-                    break;
-                }
-            }
-        }
-
-        /**
-         * 自动添加时间戳
-         * Created by PhpStorm.
-         * @param $data array  数据
-         * @param bool $insert
-         * @return mixed
-         * @author QiuMinMin
-         * Date: 2020/5/31 8:49
-         */
-        private function autoTimestampWithUpdate($data, $insert = false)
-        {
-            $config = config('database.autoTimestamp');
-            if ($config['switch']) {
-                $closure = $config['generater'];
-                $time = Is::closure($closure) ? $closure() : time();
-
-                if ($insert) {
-                    $field = $config['createTime'][$this->tableName];
-                    !empty($field) && $data[$field] = $time;
-                }
-
-                $field = $config['updateTime'][$this->tableName];
-                !empty($field) && $data[$field] = $time;
-            }
-            return $data;
-        }
-
-        /**
-         * 真删锁校验
-         * Created by PhpStorm.
-         * @param $sql
-         * @author QiuMinMin
-         * Date: 2020/7/30 23:23
-         */
-        private function trueDeleteLock($sql)
-        {
-            if (stristr($sql, 'delete')) {
-                //假删锁验证
-                $config = config('database.canTrueDelete');
-                if (!$config['switch']) {
-                    error('请在配置中允许开启真删');
-                } else {
-                    $key = input($config['param']);
-                    if (empty($key)) {
-                        error('真删除密钥不能为空');
-                    }
-                    if ($config['key'] != $key) {
-                        error('真删除密钥不正确');
-                    }
-                }
-            }
         }
 
         /**
@@ -1662,35 +1768,11 @@ function initialize()
             }
         }
 
-        public function query()
-        {
-            if (empty($this->sql)) {
-                return null;
-            }
-
-            try {
-                $this->connect();
-
-                $result = parent::query();
-
-                hook('sql', [
-                    'sql' => $this->sql
-                ]);
-
-                //执行日志
-                $this->log_file('run true :' . $this->sql, 'sql');
-
-                return $result;
-            } catch (Exception $e) {
-                $this->log_file('run false :' . $this->sql, 'sql');
-                error($e->getMessage());
-                return false;
-            }
-        }
-
         /**
-         * 执行所有SQL的语句, 返回值(SELECT返回全部内容，其他返回影响记录数量)储存到result
-         *
+         * 返回记录数或结果集
+         * Created by PhpStorm.
+         * @author QiuMinMin
+         * Date: 2020/8/1 22:35
          */
         public function execute()
         {
@@ -1698,13 +1780,12 @@ function initialize()
                 return null;
             }
 
-            $this->trueDeleteLock($this->sql);
-
             try {
                 $this->connect();
 
                 $result = parent::execute();
 
+                //钩子
                 hook('sql', [
                     'sql' => $this->sql
                 ]);
@@ -1720,56 +1801,27 @@ function initialize()
             }
         }
 
-        public function apino($trueTableName, $expression, $params)
-        {
-            return Apino::executor("/{$trueTableName}/$expression", $params);
-        }
-
-        /**
-         * 魔术方法
-         * Created by PhpStorm.
-         * @param $name
-         * @param $arguments
-         * @return Model
-         * @author QiuMinMin
-         * Date: 2020/7/30 23:15
-         */
-        public function __call($name, $arguments)
-        {
-            if (in_array($name, ['allowFields', 'autoQuery'])) {
-                $this->$name = $arguments[0];
-            }
-
-            return $this;
-        }
-
     }
 
     /**
-     * Class Sql sql瓶装类
+     * SQL拼装类
+     * Class Sql
      */
     class Sql extends Db
     {
+
         public function __construct($tableName = null)
         {
-            parent::__construct(true);
-            $this->tableName = $tableName;
+            parent::__construct();
+            $this->trueTableName = config('database.tableNamePrefix') . $tableName;
         }
 
-        /**
-         * 指定表
-         * Created by PhpStorm.
-         * @param $trueTableName
-         * @return Sql
-         * @author QiuMinMin
-         * Date: 2020/6/27 2
-         * 0:56
-         */
-        public function table($trueTableName)
+        public function apino($expression, $params)
         {
-            $self = new self();
-            $self->trueTableName = $trueTableName;
-            return $self;
+//            preg_match('/\/(.*)\/(.*)/', $expression, $matches);
+//            $trueTableName = $matches[1];
+//            $expression = $matches[2];
+            return (new ApinoSql($this->trueTableName, $expression, $params))->sql();
         }
 
     }
@@ -1780,11 +1832,12 @@ function initialize()
      */
     class Model extends Db
     {
-
-        public function __construct($tableName, $lazyConnect = false)
+        public function __construct($tableName = null)
         {
-            $this->trueTableName = config('database.tableNamePrefix') . $tableName;
-            parent::__construct($lazyConnect);
+            parent::__construct();
+            if ($tableName) {
+                $this->trueTableName = config('database.tableNamePrefix') . $tableName;
+            }
         }
 
         public function insert($data)
@@ -1808,114 +1861,40 @@ function initialize()
         public function select($fields = "*")
         {
             $this->sql = parent::select($fields);
-            return $this->suppleData($this->query());
+            return $this->suppleData($this->execute());
         }
 
-        public function selectOne($fields = "*")
+        public function get($fields = "*")
         {
-            $this->sql = parent::selectOne($fields);
-            return $this->suppleData([$this->query()])[0];
+            $this->sql = parent::get($fields);
+            return $this->suppleData([$this->execute()])[0];
         }
 
         public function count()
         {
             $this->sql = parent::count();
-            return $this->query()['count'];
+            return $this->execute()[__FUNCTION__];
         }
 
         public function getField($field, $multi = false)
         {
             $this->sql = parent::getField($field, $multi);
-            $result = $this->query()[$field];
+            $result = $this->execute()[$field];
             return $multi ? array_column($result, $field) : $result[$field];
         }
 
-        /**
-         * 获取表字段信息
-         * Created by PhpStorm.
-         * @author QiuMinMin
-         * Date: 2020/6/19 9:17
-         */
-        public function getTableFields()
+        public function apino($expression, $params)
         {
-            $sql = sprintf('
-            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_NAME = "%s" AND TABLE_SCHEMA = "%s"',
-                $this->trueTableName,
-                $this->dbname
-            );
-            return array_column($this->sql($sql)->exec(), 'COLUMN_NAME');
-        }
-
-        public function apino($trueTableName, $expression, $params)
-        {
-            $sql = parent::apino($trueTableName, $expression, $params); // TODO: Change the autogenerated stub
-            $result = $this->sql($sql)->exec();
-            if (config('runtime.select.one')) {
+            $apinoSql = new ApinoSql($this->trueTableName, $expression, $params);
+            $result = $this->sql($apinoSql->sql())->execute();
+            if ($apinoSql->isSelectOne()) {
                 //只查单
-                config('runtime.select.one', null);
                 return $result[0];
-            } elseif (config('runtime.select.count')) {
+            } elseif ($apinoSql->isSelectCount()) {
                 //只需要总数
-                config('runtime.select.count', null);
-                return $result[0]['COUNT(*)'];
+                return $result[0]['count'];
             }
             return $result;
-        }
-
-        /**
-         * 数据补充(关联查询数据)
-         * Created by PhpStorm.
-         * @param $data array
-         * @return array
-         * @author QiuMinMin
-         * Date: 2020/7/31 0:12
-         */
-        private function suppleData($data)
-        {
-            if (!$this->autoQuery) {
-                return $data;
-            }
-
-            $config = config('database.autoQuery');
-            if (Is::array($config) && count($config) == 0) {
-                return $data;
-            }
-
-            /**
-             * @example [内键 => [外表, 外键, 关系], ...]
-             */
-            $relationDataList = [];
-
-            foreach ($config as $foreignKey => $internalKeys) {
-                list($foreignTrueTableName, $foreignKey) = explode('.', $foreignKey);
-                foreach ($internalKeys as $internalKey => $relation) {
-                    list($trueTableName, $internalKey) = explode('.', $internalKey);
-                    if ($this->trueTableName != $trueTableName) {
-                        continue;
-                    }
-                    $relationDataList[$internalKey] = [$foreignTrueTableName, $foreignKey, $relation];
-                }
-            }
-            if (count($relationDataList) == 0) {
-                return $data;
-            }
-
-            foreach ($data as &$record) {
-                foreach ($relationDataList as $field => $relation) {
-                    if (!isset($record[$field])) {
-                        continue;
-                    }
-                    list($trueTableName, $foreignKey, $relation) = $relation;
-                    $self = new self('');
-                    $self->trueTableName = $trueTableName;
-                    $self = $self->where($foreignKey, $record[$field]);
-                    $record['relation'][$field] = $relation == ONE_TO_MANY ? $self->select() : $self->selectOne();
-                }
-
-                unset($record);
-            }
-            return $data;
         }
     }
 
@@ -1923,8 +1902,12 @@ function initialize()
      * apino表达式模型转换sql类
      * Class Apino
      */
-    class Apino
+    class ApinoSql
     {
+        use DbPlusTrait;
+
+        protected $sql;
+
         private $expression;
         /**
          * @var ApinoExpression
@@ -1934,35 +1917,47 @@ function initialize()
          * @var array 入参值
          */
         private $params;
+        /**
+         * @var bool 查单
+         */
+        private $isSelectOne = false;
+        /**
+         * @var bool 查总数
+         */
+        private $iSelectCount = false;
 
-        private $trueTableName;
+        public function isSelectOne()
+        {
+            return $this->isSelectOne;
+        }
 
-        private function __construct($trueTableName, $expression, $params)
+        public function isSelectCount()
+        {
+            return $this->iSelectCount;
+        }
+
+        public function __construct($trueTableName, $expression, $params)
         {
             $this->trueTableName = $trueTableName;
             $this->expression = $expression;
             $this->params = $params;
             $this->apinoExpression = ApinoExpression::resolver($expression, $params);
+
+            foreach (['select', 'insert', 'update', 'delete'] as $item) {
+                if (strpos($expression, $item)) {
+                    $this->$item($expression, $params);
+                }
+            }
         }
 
-        private static function instance($expression, $params)
-        {
-            preg_match('/\/(.*)\/(.*)/', $expression, $matches);
-            $trueTableName = $matches[1];
-            $expression = $matches[2];
-            return new self($trueTableName, $expression, $params);
-        }
 
         /**
          * 生成删除SQL
          * @param $expression
          * @param $params
-         * @return string
          */
-        public function delete($expression, $params)
+        public function delete()
         {
-            $self = self::instance($expression, $params);
-
             //检查是否有假删除状态，有则优先使用
             $array = (function ($trueTableName) {
                 $list = config('database.falseDeleteValue');
@@ -1973,149 +1968,121 @@ function initialize()
                     }
                 }
                 return [];
-            })($self->trueTableName);
+            })($this->trueTableName);
 
             if (count($array) == 0) {
-                $sql = sprintf('DELETE FROM %s', $self->trueTableName);
+                $sql = sprintf('DELETE FROM %s', $this->trueTableName);
             } else {
-                $sql = sprintf('UPDATE %s SET `%s` = "%s"', $self->trueTableName, $array[0], $array[1]);
+                $sql = sprintf('UPDATE %s SET `%s` = "%s"', $this->trueTableName, $array[0], $array[1]);
             }
 
 
-            $where = $self->apinoExpression->by();
+            $where = $this->apinoExpression->by();
             if ($where) {
                 $sql .= ' WHERE ' . $where;
             }
-            return $sql;
+            $this->sql = $sql;
         }
 
         /**
          * 生成插入SQL
          * @param $expression
          * @param $params
-         * @return string
          */
-        public function insert($expression, $params)
+        public function insert()
         {
-            $self = self::instance($expression, $params);
             $fields = [];
             $values = [];
-            foreach ($self->params as $k => $v) {
+            foreach ($this->params as $k => $v) {
                 array_push($fields, $k);
                 array_push($values, $v);
             }
-            $sql = sprintf(
+            $this->sql = sprintf(
             /** @lang text */ 'INSERT INTO %s(%s) values(%s)',
-                $self->trueTableName,
+                $this->trueTableName,
                 implode(',', $fields),
                 implode(',', $values)
             );
-            return $sql;
         }
 
         /**
          * 生成更新SQL
          * @param $expression
          * @param $params
-         * @return string
          */
-        public function update($expression, $params)
+        public function update()
         {
-            $self = self::instance($expression, $params);
-            $sql = "UPDATE `{$self->trueTableName}` SET %s";
-            $set = $self->apinoExpression->set();
+            $sql = "UPDATE `{$this->trueTableName}` SET %s";
+            $set = $this->apinoExpression->set();
             $sql = sprintf($sql, $set);
 
-            $where = $self->apinoExpression->by();
+            $where = $this->apinoExpression->by();
             if (!empty($where)) {
                 $sql .= ' WHERE ' . $where;
             }
 
             $sql = sprintf($sql, $set, $where);
-            return $sql;
+            $this->sql = $sql;
         }
 
         /**
          * 生成查询SQL
          * @param $expression
          * @param $params
-         * @return string
          */
-        public function select($expression, $params)
+        public function select()
         {
-            $self = self::instance($expression, $params);
-            $sql = "SELECT %s FROM `{$self->trueTableName}`";
+            $sql = "SELECT %s FROM `{$this->trueTableName}`";
 
             //是否设定指定得字段
-            $fields = $self->apinoExpression->only();
+            $fields = $this->apinoExpression->only();
             if (empty($fields)) {
                 $fields = '*';
             }
             //标记字段
-            $mod = $self->apinoExpression->mod();
-            config('runtime.select.' . $mod, true);
+            $mod = $this->apinoExpression->mod();
 
             if ($mod == 'count') {
-                $fields = 'COUNT(*)';
+                $fields = 'COUNT(*) as `count`';
+                $this->iSelectCount = true;
             }
             $sql = sprintf($sql, $fields);
 
-            $where = $self->apinoExpression->by();
-            if (!empty($where)) {
-                $sql .= ' WHERE ' . $where;
-            }
+            $where = $this->apinoExpression->by();
+            empty($where) || $sql .= ' WHERE ' . $where;
 
-            $order = $self->apinoExpression->order();
-            if (!empty($order)) {
-                $sql .= ' ORDER BY ' . $order;
-            }
 
-            $group = $self->apinoExpression->group();
-            if (!empty($group)) {
-                $sql .= ' GROUP BY ' . $group;
-            }
+            $order = $this->apinoExpression->order();
+            empty($order) || $sql .= ' ORDER BY ' . $order;
 
-            $hasLimit = false;
-            $limit = $self->apinoExpression->limit();
+
+            $group = $this->apinoExpression->group();
+            empty($group) || $sql .= ' GROUP BY ' . $group;
+
+            $limit = $this->apinoExpression->limit();
+            $page = $this->apinoExpression->page();
             if (!empty($limit)) {
                 $sql .= ' LIMIT ' . $limit;
-                $hasLimit = true;
-            }
-
-            if (!$hasLimit && $mod == 'page') {
-                $start = isset($args[config('action.page.start')]) ? $args[config('action.page.start')] : 0;
-                $page = isset($args[config('action.page.request.page')]) ? $args[config(
-                        'action.page.start'
-                    )] - $start : $start;
-                $size = isset($args[config('action.page.request.size')]) ? $args[config('action.page.request.size')] : 10;
-                $sql .= " LIMIT {$page},{$size}";
-                $hasLimit = true;
-            }
-
-            if (!$hasLimit && in_array($mod, ['', 'one'])) {
+            } elseif (!empty($page)) {
+                $sql .= " LIMIT {$page}";
+            } elseif (in_array($mod, ['', 'one'])) {
                 $sql .= " LIMIT 1";
-                $hasLimit = true;
+                $this->isSelectOne = true;
             }
 
-            return $sql;
+            $this->sql = $sql;
         }
 
         /**
          * 聚合执行入口
          * Created by PhpStorm.
-         * @param $expression
-         * @param $params
-         * @return mixed
+         * @return string|null
          * @author QiuMinMin
          * Date: 2020/6/8 8:06
          */
-        public static function executor($expression, $params)
+        public function sql()
         {
-            foreach (['select', 'insert', 'update', 'delete'] as $item) {
-                if (strpos($expression, $item)) {
-                    return self::$item($expression, $params);
-                }
-            }
+            return $this->sql;
         }
     }
 
@@ -2138,7 +2105,7 @@ function initialize()
         /**
          * @var string[] 支持子表达式
          */
-        private static $subExpList = ['by', 'only', 'none', 'order', 'group', 'limit', 'set'];
+        private static $subExpList = ['by', 'only', 'none', 'order', 'group', 'limit', 'set', 'page'];
 
         /**
          * @var $expression string 源表达式
@@ -2553,6 +2520,20 @@ function initialize()
          * Date: 2020/6/5 17:30
          */
         public function limit($params = [])
+        {
+            $params = array_merge($this->params, $params);
+            return $this->getSubExpValue(__FUNCTION__, function ($value, $params) {
+                $value = explode(',', $value);
+                foreach ($value as $i => $item) {
+                    if (!is_numeric($item)) {
+                        $value[$i] = $params[$item];
+                    }
+                }
+                return implode(',', $value);
+            }, $params);
+        }
+
+        public function page($params = [])
         {
             $params = array_merge($this->params, $params);
             return $this->getSubExpValue(__FUNCTION__, function ($value, $params) {
@@ -3258,9 +3239,14 @@ function initialize()
                 return;
             }
 
+            if ($GLOBALS['config_checker']) {
+                return;
+            }
+
+            $GLOBALS['config_checker'] = 1;
+
             try {
                 $self = new self();
-
 
                 $self->checkAppConfig();
                 $self->checkDatabaseConfig();
@@ -3767,7 +3753,6 @@ function initialize()
         }
     }
 
-
     /**
      * 程序核心流程
      * Class App
@@ -3784,6 +3769,9 @@ function initialize()
          */
         private static function init()
         {
+            //加载用自定义
+            custom();
+
             //SESSION会话切换
             $sessionId = config('app.init.session');
             if (!empty($sessionId)) {
@@ -3860,7 +3848,65 @@ function initialize()
     }
 }
 
-//暴露功能（使用者可用）
+/**
+ * 定义系统常量
+ * Created by PhpStorm.
+ * @author QiuMinMin
+ * Date: 2020/8/3 0:46
+ */
+function defines(){
+    //关闭严格模式
+    ini_set("display_errors", 0);
+
+    //定义常量
+    //判断是否为api请求(是否是第一个引入文件)
+    define('IS_AJAX', get_required_files()[0] == __FILE__ ? 1 : 0);
+
+    //简化系统内置文件路径分隔符
+    define("DS", DIRECTORY_SEPARATOR);
+
+    //路径
+    define("ROOT_PATH", $_SERVER['DOCUMENT_ROOT']);
+    define("UPLOAD_PATH", ROOT_PATH . "/upload");
+
+    define("LOG_PATH", ROOT_PATH . "/log");
+
+    //validate正则类型
+    define('REQ', 'require');
+    define('INT', 'int');
+    define('FLOAT', 'float');
+    define('MOBILE', 'mobile');
+    define('EMAIL', 'email');
+    define('ARR', 'array');
+    //validate支持的所有正则
+    define('VALIDATE_TYPE_ARRAY', [
+        REQ,
+        INT,
+        FLOAT,
+        MOBILE,
+        EMAIL,
+        ARR
+    ]);
+
+    //系统默认角色
+    define('GUEST', 'guest');
+
+    //真实SQL前缀
+    define('SQL_RAW_PREFIX', random_bytes(10));
+
+    //获取权限模式
+    define('CONFIG', 'config');
+    define('DATABASE', 'database');
+    define('NONE', 'none');
+
+    //表关联常量
+    define('ONE_TO_ONE', 11); //一对一
+    define('ONE_TO_MANY', 13); //一对多
+}
+
+/**
+ * 以下为用户可用功能
+ */
 
 /**
  * 嵌入页面代码工具类
@@ -4046,7 +4092,13 @@ function error(string $content)
  */
 function apino(string $expression, $params = [])
 {
-    return Method::getInstance()->apino($expression, $params);
+    $result = Method::getInstance()->apino($expression, $params);
+    hook('apino', [
+        'name' => $expression,
+        'request' => $params,
+        'response' => $result
+    ]);
+    return $result;
 }
 
 /**

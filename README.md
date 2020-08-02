@@ -14,8 +14,8 @@ https://www.kancloud.cn/shanadmin/apino
 MIT
 
 ###温馨提示  
-PHP版本不低于7 
-  
+1.PHP版本不低于7  
+2.使用apino请使用tag版本  
   
   
   
