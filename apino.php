@@ -1,7 +1,6 @@
 <?php
-
 /**
- * @version    V2.0.0
+ * @version    V0.2.0
  * @author     QiuMinMin
  * @date       15:52 2020/3/5
  * @controller 控制器强制为小驼峰
