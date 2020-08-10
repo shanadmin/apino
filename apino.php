@@ -5,9 +5,8 @@
  * @date       15:52 2020/3/5
  * @controller 控制器强制为小驼峰
  * @action     事件名强制为小驼峰
- * @args       传参名称与表中名称一直（也可自定义参数名转换器）， 优先级为 json > post > get
- * @url        API访问格式 [/apino.php]/{controller}/{action}?arg1Name=arg1Value&arg2Name=arg2Value...
- * 执行流程     request->router->authority->validate->api->controller->server->dao->apino->response
+ * @args       传参名称与表中名称一致（也可自定义参数名转换器），优先级为 json > post > get
+ * @url        API访问格式 /apino.php/{$expression}
  * @expression selectAll{only[user_id,id,name] none[nick]by[(a:a1&b&!a:a2)|c)&!d&~%e%&f&g&(h|i)]limit[page,size]only[123,2]}
  * @simpleExpression selectByUser_id
  *
@@ -593,6 +592,11 @@ function log(string $content, string $fileName, bool $dailyWrite = true, bool $w
 {
     Log::file($content, $fileName, $dailyWrite, $writeTime);
 }
+
+/**
+ * 内嵌类
+ */
+class_alias(Embed::class, 'Em');
 
 //配置检查员(app.debug开启后才会执行)
 ConfigChecker::run();
@@ -2253,7 +2257,7 @@ function frameInitialize()
 
     /**
      * apino表达式模型转换sql类
-     * Class Apino
+     * Class ApinoSql
      */
     class ApinoSql
     {
@@ -4167,6 +4171,10 @@ function frameInitialize()
 
     }
 
+    /**
+     * 请求类
+     * Class EmbedReq
+     */
     class EmbedReq
     {
         /**
@@ -4296,6 +4304,29 @@ function frameInitialize()
             return '/apino.php' . $expression;
         }
 
+        /**
+         * 生成标签
+         * Created by PhpStorm.
+         * @param $name
+         * @param array $attrs
+         * @param array|string $html
+         * @return string
+         * @author QiuMinMin
+         * Date: 2020/8/8 18:54
+         */
+        public static function tag($name, $attrs = [], $html = '')
+        {
+            if (gettype($html) == 'array') {
+                $html = implode('', $html);
+            }
+
+            $attrsString = '';
+            foreach ($attrs as $name => $value) {
+                $attrsString .= sprintf(' %s = "%s"', $name, $value);
+            }
+            return sprintf('<%s %s>%s</%s>', $name, $attrsString, $html, $name);
+        }
+
         public function __get($name)
         {
             if (empty(self::$name)) {
@@ -4305,5 +4336,4 @@ function frameInitialize()
             return self::$name;
         }
     }
-
 }
