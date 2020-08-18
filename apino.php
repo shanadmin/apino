@@ -212,6 +212,7 @@ config('api', [
             'sence' => [
                 '/user/register' => VerifyCode::asImage(4, 200, 100),
                 '/user/login' => VerifyCode::asEmail(4, '验证码信息', '您的验证码位#code#,请5分钟内使用！', '#code#'),
+                '/user/reg' => VerifyCode::asMobile(4, ''),
             ],
         ],
         //获取token接口
@@ -387,6 +388,9 @@ config('handler', [
     'set_error_handler' => function ($errno, $errorStr, $errorFile, $errorLine, $errorContext) {
     },
     'register_shutdown_function' => function () {
+    },
+    //短信发送函数
+    'sms_sender' => function ($args) {
     }
 ]);
 
@@ -3143,6 +3147,30 @@ function frameInitialize()
 
             return Result::success();
         }
+
+        /**
+         * 验证安全验证码
+         * Created by PhpStorm.
+         * @param Router $router
+         * @return array
+         * @author QiuMinMin
+         * Date: 2020/8/18 19:27
+         */
+        public static function checkVerifyCode(Router $router)
+        {
+            /**
+             * @var $verifyCode VerifyCode
+             */
+            $verifyCode = config("api.util.verifyCode.sence.{$router->url()}");
+            if (!$verifyCode) {
+                return Result::success();
+            }
+            $param = config('api.util.verifyCode.param');
+            if (!VerifyCode::checkCode($verifyCode->type(), input($param))) {
+                return Result::error('验证码错误');
+            }
+            return Result::success();
+        }
     }
 
     /**
@@ -3152,10 +3180,15 @@ function frameInitialize()
     class VerifyCode
     {
 
-        private static $sessKey = 'verifyCode.';
-
         const IMAGE = 'image';
         const EMAIL = 'email';
+        const MOBILE = 'mobile';
+
+        /**
+         * @var string 验证码
+         */
+        private $code;
+
         //当前生成验证码类型
         private $type;
         //验证码长度
@@ -3164,9 +3197,11 @@ function frameInitialize()
         private $width, $height;
         //邮箱验证码信息
         private $codeTemplate, $title, $content;
+        //手机验证码信息
+        private $args;
 
         /**
-         *
+         * 标记为邮箱验证码
          * Created by PhpStorm.
          * @param $codeNumber
          * @param $title
@@ -3188,7 +3223,7 @@ function frameInitialize()
         }
 
         /**
-         *
+         * 标记为图片验证码
          * Created by PhpStorm.
          * @param $codeNumber
          * @param $width
@@ -3208,9 +3243,45 @@ function frameInitialize()
         }
 
         /**
-         * @var string 验证码
+         * 标识为手机验证码
+         * Created by PhpStorm.
+         * @param $codeNumber
+         * @param array $args
+         * @return VerifyCode
+         * @author QiuMinMin
+         * Date: 2020/8/18 20:32
          */
-        private $code;
+        public static function asMobile($codeNumber, $args = [])
+        {
+            $self = new self();
+            $self->type = self::MOBILE;
+            $self->codeNumber = $codeNumber;
+            $self->args = $args;
+            return $self;
+        }
+
+        /**
+         * 执行
+         * Created by PhpStorm.
+         * @author QiuMinMin
+         * Date: 2020/8/18 20:34
+         */
+        public function builder()
+        {
+            $this->generatorCode();
+            switch ($this->type) {
+                case self::EMAIL:
+                    $this->email();
+                    break;
+                case self::IMAGE:
+                    $this->image();
+                    break;
+                case self::MOBILE:
+                    $closure = config('handler.sms_handler');
+                    Is::closure($closure) && $closure($this->args);
+                    break;
+            }
+        }
 
         /**
          * 生成验证码
@@ -3218,15 +3289,8 @@ function frameInitialize()
          * @param null $sessKey
          * @return false|string
          */
-        public static function gen($number, $sessKey = null)
+        private function generatorCode()
         {
-            if (!in_array($sessKey, [self::EMAIL, self::IMAGE])) {
-                error('没有该类型的验证码');
-            }
-
-            $sessKey .= self::$sessKey . $sessKey;
-
-            $self = new self();
             $codes = implode(
                 "",
                 array_merge(
@@ -3235,19 +3299,17 @@ function frameInitialize()
                     range("A", "Z")
                 )
             );
-            $self->code = substr(str_shuffle($codes), 0, $number);
+            $this->code = substr(str_shuffle($codes), 0, $this->codeNumber);
 
-            if (!empty($sessionKey)) {
-                session($sessKey, $self->code);
-            }
+            session("verifyCode.{$this->type}", $this->code);
 
-            return $self;
+            return $this;
         }
 
-        public function image($config)
+        public function image()
         {
-            $width = $config['width'];
-            $height = $config['height'];
+            $width = $this->width;
+            $height = $this->height;
             //创建画布
             $image = imagecreatetruecolor($width, $height);
             //白色背景
@@ -3277,21 +3339,22 @@ function frameInitialize()
             imagedestroy($image);
         }
 
-        public function email($email)
+        public function email()
         {
+            $emailConfig = config('smtp');
             $smtp = new Smtp(
-                $email['server'], $email['port'], true, $email['sender'],
-                $email['password']
+                $emailConfig['server'], $emailConfig['port'], true, $emailConfig['sender'],
+                $emailConfig['password']
             );//这里面的一个true是表示使用身份验证,否则不使用身份验证.
             $smtp->debug = false;//是否显示发送的调试信息
             //内容模板替换#code#关键字
-            $content = str_ireplace("#code#", $this->code, $email['content']);
+            $this->content = str_ireplace($this->codeTemplate, $this->code, $this->content);
             $state = $smtp->sendmail(
-                $email['receiver'],
-                $email['sender'],
-                $email['title'],
-                $content,
-                $email['type']
+                $emailConfig['receiver'],
+                $emailConfig['sender'],
+                $this->title,
+                $this->content,
+                $emailConfig['type']
             );
             if ($state == "") {
                 return false;
@@ -3300,28 +3363,28 @@ function frameInitialize()
             }
         }
 
-        public function getCode()
+        public function type()
         {
-            return $this->code;
+            return $this->type;
         }
 
         /**
          * 核对验证码
          * Created by PhpStorm.
-         * @param $sence
+         * @param $type
          * @param $code
          * @return array
          * @author QiuMinMin
          * Date: 2020/6/8 9:26
          */
-        public static function check($sence, $code)
+        public static function checkCode($type, $code)
         {
-            $sessCode = session('verifyCode.', $sence);
+            $sessCode = session('verifyCode.' . $type);
             if (empty($sessCode)) {
-                Result::error('请先获取验证码');
+                return Result::error('请先获取验证码');
             }
             if (empty($code)) {
-                Result::error('验证码不能为空');
+                return Result::error('验证码不能为空');
             }
             if ($sessCode != $code) {
                 return Result::error('验证码不正确');
@@ -4034,10 +4097,13 @@ function frameInitialize()
             //获取路由信息
             $router = Router::route();
 
-            //校验TOKEN
+            //校验TOKEN(全指定或全不校验)
             list($success, $result) = Api::checkToken($router);
             !$success && Response::error($result);
 
+            //校验验证码(仅指定api校验)
+            list($success, $result) = Api::checkVerifyCode($router);
+            !$success && Response::error($result);
 
             //日志钩子
             hook('router', [
