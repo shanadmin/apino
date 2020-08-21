@@ -3271,16 +3271,17 @@ function frameInitialize()
             $this->generatorCode();
             switch ($this->type) {
                 case self::EMAIL:
-                    $this->email();
-                    break;
+                    return $this->email();
                 case self::IMAGE:
-                    $this->image();
-                    break;
+                    return $this->image();
                 case self::MOBILE:
                     $closure = config('handler.sms_handler');
-                    Is::closure($closure) && $closure($this->args);
-                    break;
+                    if (!Is::closure($closure)) {
+                        return false;
+                    }
+                    return $closure($this->args);
             }
+            return false;
         }
 
         /**
@@ -3337,6 +3338,7 @@ function frameInitialize()
             header("Content-type: image/png");
             imagepng($image);
             imagedestroy($image);
+            die();
         }
 
         public function email()
@@ -3836,23 +3838,21 @@ function frameInitialize()
          */
         public function verifyCode(array $c)
         {
-            $sence = input('sence', VerifyCode::IMAGE);
+            $sence = input('sence');
 
-            $result = check([
-                [empty($sence), '无场景'],
-                [!method_exists(VerifyCode::class, $sence), '不存在该场景'],
-                [empty($c), '配置不存在']
-            ]);
-
-            if ($result !== true) {
-                return Result::error($result);
+            /**
+             * @var $verifyCode VerifyCode
+             */
+            $verifyCode = config("api.util.verifyCode.{$sence}");
+            if (empty($verifyCode)) {
+                return Result::error('无该场景的验证码');
             }
 
-            //生成验证码并存入session中
-            $result = VerifyCode::gen($c['number'], $sence)->$sence($c);
+            $result = $verifyCode->builder();
+
             //如果有返回值判断为false则生成失败
             if (!$result) {
-                return Result::error('验证码获取失败');
+                return Result::error('获取验证码失败');
             }
             return Result::success([]);
         }
