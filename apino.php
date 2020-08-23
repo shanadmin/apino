@@ -146,11 +146,12 @@ config('route', [
 
 ]);
 /**
- * 角色权限声明，true则为全部权限，false则无任何权限
+ * 角色权限声明，1则为全部权限，0或[]组则无任何权限
  * 默认角色 GUEST, GUEST为常量
  * 该操作为配置式权限申明，
  */
 config('authority', [
+    ADMIN => 1,
     //无登录用户权限信息
     GUEST => [],
     //用户自定义权限
@@ -823,7 +824,11 @@ function frameInitialize()
         define('VALIDATE_TYPE_ARRAY', [REQ, INT, FLOAT, MOBILE, EMAIL, ARR]);
 
         //系统默认角色
+        //访客(未登录权限)
         define('GUEST', 'guest');
+        //超级管理员(一般拥有所有权限)
+        define('ADMIN', 'admin');
+
 
         //真实SQL前缀
         define('SQL_RAW_PREFIX', random_bytes(10));
