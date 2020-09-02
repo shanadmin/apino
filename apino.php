@@ -788,6 +788,12 @@ IS_AJAX && Core::run();
  */
 function frameInitialize()
 {
+    define('APINO_START', microtime(true));
+
+    //加载composer加载工具
+    require_once __DIR__ . '/vendor/autoload.php';
+
+
     /**
      * 定义系统常量
      * Created by PhpStorm.
@@ -4298,6 +4304,10 @@ function frameInitialize()
          * @var EmbedReq
          */
         public static $req;
+        /**
+         * @var mixed
+         */
+
 
         /**
          * Created by PhpStorm.
