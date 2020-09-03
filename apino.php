@@ -1,6 +1,6 @@
 <?php
 /**
- * @version    V0.2.0
+ * @version    V0.2.200903
  * @author     QiuMinMin
  * @date       15:52 2020/3/5
  * @controller 控制器强制为小驼峰
@@ -394,16 +394,11 @@ config('handler', [
     'sms_sender' => function ($args) {
     }
 ]);
-
 /**
- * 用户自定义代码块
- * Created by PhpStorm.
- * @author QiuMinMin
- * Date: 2020/8/2 13:46
+ * 用户手动引入文件
  */
-function custom()
-{
-}
+config('require_file', [
+]);
 
 /**
  * 钩子
@@ -790,8 +785,12 @@ function frameInitialize()
 {
     define('APINO_START', microtime(true));
 
-    //加载composer加载工具
-    require_once __DIR__ . '/vendor/autoload.php';
+    //有使用composer则进行加载composer加载工具
+    if(file_exists(__DIR__ . '/composer.json')){
+        if(file_exists(__DIR__ . '/vendor/autoload.php')){
+            require_once __DIR__ . '/vendor/autoload.php';
+        }
+    }
 
 
     /**
@@ -2182,8 +2181,8 @@ function frameInitialize()
             $this->apinoExpression = ApinoExpression::resolver($expression, $params);
 
             foreach (['select', 'insert', 'update', 'delete'] as $item) {
-                if (strpos($expression, $item)) {
-                    $this->$item($expression, $params);
+                if (strpos($expression, $item) > -1) {
+                    $this->$item();
                 }
             }
         }
@@ -2193,7 +2192,7 @@ function frameInitialize()
          * @param $expression
          * @param $params
          */
-        public function delete()
+        protected function delete()
         {
             if ($this->trueDelete) {
                 $sql = sprintf('DELETE FROM %s', $this->trueTableName);
@@ -2219,7 +2218,7 @@ function frameInitialize()
          * @param $expression
          * @param $params
          */
-        public function insert()
+        protected function insert()
         {
             $fields = [];
             $values = [];
@@ -2240,7 +2239,7 @@ function frameInitialize()
          * @param $expression
          * @param $params
          */
-        public function update()
+        protected function update()
         {
             $sql = "UPDATE `{$this->trueTableName}` SET %s";
             $set = $this->apinoExpression->set();
@@ -2260,8 +2259,9 @@ function frameInitialize()
          * @param $expression
          * @param $params
          */
-        public function select()
+        protected function select()
         {
+
             $sql = "SELECT %s FROM `{$this->trueTableName}`";
 
             //是否设定指定得字段
@@ -2279,7 +2279,7 @@ function frameInitialize()
             $sql = sprintf($sql, $fields);
 
             $where = $this->apinoExpression->by();
-            empty($where) || $sql .= ' WHERE ' . $where;
+            empty($where) || $sql .= ' WHERE' . $where;
 
 
             $order = $this->apinoExpression->order();
@@ -2621,14 +2621,14 @@ function frameInitialize()
                     return $this->highResolverBy($value, $params);
                 } else {
                     //简易模式
-                    $str = ' 1=1 ';
+                    $str = ' 1=1';
                     foreach ($value as $name => $valueName) {
                         $symbol = '=';
                         if (strpos($name, '!') !== false) {
                             $symbol = '!=';
                             $name = substr($name, 0, strlen($name) - 1);
                         }
-                        $str .= " AND {$name} {$symbol} '{$params[$valueName]}'";
+                        $str .= " AND `{$name}` {$symbol} '{$params[$valueName]}'";
                     }
                     return $str;
                 }
@@ -4099,8 +4099,15 @@ function frameInitialize()
             //页面不进行直接渲染
             ob_start();
 
-            //加载用自定义
-            custom();
+            //加载用户配置引入文件
+            $files = config('include_file');
+            if(Is::array($files)){
+                foreach ($files as $file){
+                    if(file_exists($file)){
+                        require_once $file;
+                    }
+                }
+            }
 
             //初始化钩子
             hook('initialize');
@@ -4393,4 +4400,6 @@ function frameInitialize()
             return self::$name;
         }
     }
+
+
 }
