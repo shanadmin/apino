@@ -1,15 +1,15 @@
 <?php
 /**
- * @version    V0.2.200903
- * @author     QiuMinMin
- * @date       15:52 2020/3/5
- * @controller 控制器强制为小驼峰
- * @action     事件名强制为小驼峰
- * @args       传参名称与表中名称一致（也可自定义参数名转换器），优先级为 json > post > get
- * @url        API访问格式 /apino.php/{$expression}
- * @expression selectAll{only[user_id,id,name] none[nick]by[(a:a1&b&!a:a2)|c)&!d&~%e%&f&g&(h|i)]limit[page,size]only[123,2]}
- * @simpleExpression selectByUser_id
  *
+ *     /\      |—————|   ———————    |\    |     |———————|
+ *    /  \     |     |      |       | \   |     |       |
+ *   /____\    |—————|      |       |  \  |     |       |
+ *  /      \   |            |       |   \ |     |       |
+ * /        \  |         ———————    |    \|     |———————|
+ *
+ *  版本：V0.2.200903
+ *  作者：邱岷岷
+ *  时间：2020/9/4
  */
 
 //框架初始化
@@ -792,7 +792,6 @@ function frameInitialize()
         }
     }
 
-
     /**
      * 定义系统常量
      * Created by PhpStorm.
@@ -1453,7 +1452,7 @@ function frameInitialize()
         /**
          * 获取|修改SQL
          * Created by PhpStorm.
-         * @param string $sql
+         * @param null|string $sql
          * @return mixed
          * @author QiuMinMin
          * Date: 2020/8/1 23:03
@@ -2055,10 +2054,7 @@ function frameInitialize()
 
         public function apino($expression, $params)
         {
-//            preg_match('/\/(.*)\/(.*)/', $expression, $matches);
-//            $trueTableName = $matches[1];
-//            $expression = $matches[2];
-            return (new ApinoSql($this->trueTableName, $expression, $params))->sql();
+            return ApinoSql::build($this->trueTableName, $expression, $params)->sql();
         }
 
     }
@@ -2122,7 +2118,7 @@ function frameInitialize()
 
         public function apino($expression, $params)
         {
-            $apinoSql = new ApinoSql($this->trueTableName, $expression, $params);
+            $apinoSql = ApinoSql::build($this->trueTableName, $expression, $params);
             $result = $this->sql($apinoSql->sql())->execute();
             if ($apinoSql->isSelectOne()) {
                 //只查单
@@ -2136,8 +2132,7 @@ function frameInitialize()
     }
 
     /**
-     * apino表达式模型转换sql类
-     * Class ApinoSql
+     * Class ApinoSql 表达式模型转换sql类
      */
     class ApinoSql
     {
@@ -2163,60 +2158,82 @@ function frameInitialize()
          */
         private $iSelectCount = false;
 
+        /**
+         * 是否查单
+         */
         public function isSelectOne()
         {
             return $this->isSelectOne;
         }
 
+        /**
+         * 是否查询汇总
+         */
         public function isSelectCount()
         {
             return $this->iSelectCount;
         }
 
-        public function __construct($trueTableName, $expression, $params)
+        /**
+         * 构建器
+         * Created by PhpStorm.
+         * @param $trueTableName
+         * @param $expression
+         * @param array $params
+         * @return ApinoSql
+         * @author QiuMinMin
+         * Date: 2020/9/4 0:33
+         */
+        public static function build($trueTableName, $expression, $params = []){
+            $self = new self();
+            $self->trueTableName = $trueTableName;
+            $self->expression = $expression;
+            $self->params = $params;
+            return $self;
+        }
+        /**
+         * 聚合执行入口
+         * Created by PhpStorm.
+         * @return string|null
+         * @author QiuMinMin
+         * Date: 2020/6/8 8:06
+         */
+        public function sql()
         {
-            $this->trueTableName = $trueTableName;
-            $this->expression = $expression;
-            $this->params = $params;
-            $this->apinoExpression = ApinoExpression::resolver($expression, $params);
-
-            foreach (['select', 'insert', 'update', 'delete'] as $item) {
-                if (strpos($expression, $item) > -1) {
-                    $this->$item();
+            if(empty($this->sql)){
+                $this->apinoExpression = ApinoExpression::resolver($this->expression, $this->params);
+                foreach (['select', 'insert', 'update', 'delete'] as $item) {
+                    if (strpos($this->expression, $item) > -1) {
+                        $this->$item();
+                    }
                 }
             }
+            return $this->sql;
         }
-
         /**
          * 生成删除SQL
-         * @param $expression
-         * @param $params
          */
         protected function delete()
         {
             if ($this->trueDelete) {
-                $sql = sprintf('DELETE FROM %s', $this->trueTableName);
+                $sql = sprintf('DELETE FROM `%s`', $this->trueTableName);
             } else {
                 $result = $this->getTableFalseDeleteField();
                 if ($result) {
-                    $sql = sprintf('UPDATE %s SET `%s` = "%s"', $this->trueTableName, $result[0], $result[1]);
+                    $sql = sprintf('UPDATE `%s` SET `%s` = "%s"', $this->trueTableName, $result[0], $result[1]);
                 } else {
-                    $sql = sprintf('DELETE FROM %s', $this->trueTableName);
+                    $sql = sprintf('DELETE FROM `%s`', $this->trueTableName);
                 }
             }
 
-
             $where = $this->apinoExpression->by();
             if ($where) {
-                $sql .= ' WHERE ' . $where;
+                $sql .= ' WHERE' . $where;
             }
             $this->sql = $sql;
         }
-
         /**
          * 生成插入SQL
-         * @param $expression
-         * @param $params
          */
         protected function insert()
         {
@@ -2233,11 +2250,8 @@ function frameInitialize()
                 implode(',', $values)
             );
         }
-
         /**
          * 生成更新SQL
-         * @param $expression
-         * @param $params
          */
         protected function update()
         {
@@ -2247,17 +2261,14 @@ function frameInitialize()
 
             $where = $this->apinoExpression->by();
             if (!empty($where)) {
-                $sql .= ' WHERE ' . $where;
+                $sql .= ' WHERE' . $where;
             }
 
             $sql = sprintf($sql, $set, $where);
             $this->sql = $sql;
         }
-
         /**
          * 生成查询SQL
-         * @param $expression
-         * @param $params
          */
         protected function select()
         {
@@ -2302,23 +2313,10 @@ function frameInitialize()
 
             $this->sql = $sql;
         }
-
-        /**
-         * 聚合执行入口
-         * Created by PhpStorm.
-         * @return string|null
-         * @author QiuMinMin
-         * Date: 2020/6/8 8:06
-         */
-        public function sql()
-        {
-            return $this->sql;
-        }
     }
 
     /**
-     * Apino（表达式解析器）核心类
-     * Class ApinoExpression
+     * Class ApinoExpression Apino（表达式解析器）核心类
      */
     class ApinoExpression
     {
@@ -2494,7 +2492,7 @@ function frameInitialize()
          * 获取子表达式(内置缓存)
          * Created by PhpStorm.
          * @param $key
-         * @param $handler Closure
+         * @param Closure|null $handler Closure
          * @param array $params
          * @return mixed|null
          * @author QiuMinMin
@@ -2586,7 +2584,7 @@ function frameInitialize()
                     $valueName = $valueName ?? $field;
                     //获取入参值
                     $value = $params[$valueName];
-                    $array[$key] = "$field = '$value'";
+                    $array[$key] = "`$field` = '$value'";
                 }
                 return implode(',', $array);
             }, $params);
@@ -2608,7 +2606,7 @@ function frameInitialize()
          * 条件，对应sql中的where部分
          * Created by PhpStorm.
          * @param array $params
-         * @return false|string[]|null
+         * @return string
          * @author QiuMinMin
          * Date: 2020/6/5 17:27
          */
@@ -3297,8 +3295,6 @@ function frameInitialize()
 
         /**
          * 生成验证码
-         * @param $number
-         * @param null $sessKey
          * @return false|string
          */
         private function generatorCode()
@@ -4240,7 +4236,7 @@ function frameInitialize()
          * post请求
          * Created by PhpStorm.
          * @param $url
-         * @param Closure $callback
+         * @param null|Closure $callback
          * @param array $params
          * @return array|null
          * @author QiuMinMin
@@ -4263,8 +4259,8 @@ function frameInitialize()
          * get请求
          * Created by PhpStorm.
          * @param $url
-         * @param $params
-         * @param Closure $callback
+         * @param Closure|null $callback
+         * @param array $params
          * @return array|null
          * @author QiuMinMin
          * Date: 2020/7/4 14:43
@@ -4311,10 +4307,6 @@ function frameInitialize()
          * @var EmbedReq
          */
         public static $req;
-        /**
-         * @var mixed
-         */
-
 
         /**
          * Created by PhpStorm.
